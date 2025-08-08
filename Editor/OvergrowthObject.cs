@@ -7,13 +7,12 @@ namespace Overgrowth;
 
 public class OvergrowthObject
 {
-	public string AbsoluteFilePath { get; init; }
-	public string RelativeFilePath { get; init; }
+	public MountAssetPath XmlPath { get; init; }
 	public string ModelPath { get; init; }
 	public string ColorMapPath { get; init; }
 	public string NormalMapPath { get; init; }
 
-	public static OvergrowthObject Load( string absFilePath, string relFilePath )
+	public static OvergrowthObject Load( MountAssetPath path )
 	{
 		var xml = new XmlDocument();
 		
@@ -23,20 +22,19 @@ public class OvergrowthObject
 		
 		try
 		{
-			xml.Load( absFilePath );
-			modelPath = xml.SelectSingleNode( "Object/Model" )?.InnerText;
-			colorMapPath = xml.SelectSingleNode( "Object/ColorMap" )?.InnerText;
-			normalMapPath = xml.SelectSingleNode( "Object/NormalMap" )?.InnerText;
+			xml.Load( path.Absolute );
+			modelPath = xml.SelectSingleNode( "Object/Model" )?.InnerText?.ToLowerInvariant();
+			colorMapPath = xml.SelectSingleNode( "Object/ColorMap" )?.InnerText?.ToLowerInvariant();;
+			normalMapPath = xml.SelectSingleNode( "Object/NormalMap" )?.InnerText?.ToLowerInvariant();;
 		}
 		catch ( Exception ex )
 		{
 			// Prefabs and decals are going to have problems. Ignore these problems.
 		}
-
+		
 		return new OvergrowthObject()
 		{
-			AbsoluteFilePath = absFilePath,
-			RelativeFilePath = relFilePath,
+			XmlPath = path,
 			ModelPath = modelPath,
 			ColorMapPath = colorMapPath,
 			NormalMapPath = normalMapPath

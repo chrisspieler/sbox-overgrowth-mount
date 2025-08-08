@@ -1,25 +1,25 @@
 ﻿using Overgrowth.ObjModel;
+using Sandbox.Diagnostics;
 using Sandbox.Mounting;
 
 namespace Overgrowth;
 
-public class OvergrowthModel( string objAbsPath, string objRelPath, OvergrowthMaterial material ) : ResourceLoader<OvergrowthMount>
+public class OvergrowthModel( MountAssetPath modelRef, MountAssetPath materialRef, MountAssetPath colorTexRef, MountAssetPath normalTexRef ) : ResourceLoader<OvergrowthMount>
 {
-	protected override object Load()
+	protected override object Load() => LoadModel( modelRef, materialRef, colorTexRef, normalTexRef );
+	
+	public static Model LoadModel( MountAssetPath modRef, MountAssetPath matRef, MountAssetPath colTexRef, MountAssetPath normTexRef )
 	{
-		var objData = ObjFile.Load( objAbsPath );
+		var objData = ObjFile.Load( modRef.Absolute );
 
-		var mesh = new Mesh();
+		var material = OvergrowthMaterial.LoadMaterial( matRef, colTexRef, normTexRef );
+		Assert.NotNull( material, $"Given material was null: {matRef.Relative}" );
+		
+		var mesh = new Mesh( material );
 		mesh.CreateVertexBuffer( objData.Vertices.Count, Vertex.Layout, objData.Vertices );
 		mesh.CreateIndexBuffer( objData.Indices.Count, objData.Indices );
+		mesh.SetIndexRange( 0, objData.Indices.Count );
 		
-		var result = material.GetOrCreate();
-		if ( !result.IsCompleted )
-		{
-			result.RunSynchronously();
-		}
-		mesh.Material = (Material)result.Result;
-
 		var points = objData.Vertices.Select( v => v.Position ).ToArray();
 		mesh.Bounds = BBox.FromPoints( points );
 		
@@ -27,7 +27,7 @@ public class OvergrowthModel( string objAbsPath, string objRelPath, OvergrowthMa
 			.AddMesh( mesh )
 			.AddTraceMesh( points, objData.Indices.ToArray() )
 			.AddCollisionHull( points )
-			.WithName( objRelPath )
+			.WithName( modRef.Mount )
 			.Create();
 	}
 }

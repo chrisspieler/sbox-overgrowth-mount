@@ -2,19 +2,17 @@
 
 namespace Overgrowth;
 
-public class OvergrowthMaterial( string matRelPath, Texture colorMap, Texture normalMap ) : ResourceLoader<OvergrowthMount>
+public class OvergrowthMaterial( MountAssetPath materialPath, MountAssetPath colorPath, MountAssetPath normalPath ) 
+	: ResourceLoader<OvergrowthMount>
 {
-	protected override object Load()
+	protected override object Load() => LoadMaterial( materialPath, colorPath, normalPath );
+	
+	public static Material LoadMaterial( MountAssetPath matPath, MountAssetPath colPath, MountAssetPath normPath )
 	{
-		var material = Material.Create( matRelPath, "shaders/complex.shader" );
-		if ( colorMap.IsValid() )
-		{
-			material.Set( "Color", colorMap );
-		}
-		if ( normalMap.IsValid() )
-		{
-			material.Set( "Normal", normalMap );
-		}
+		var material = Material.Create( matPath.Mount, "overgrowth_default" );
+		material.Set( "Color", Texture.Load( colPath.Mount ) ?? Texture.White );
+		material.Set( "Normal", Texture.Load( normPath.Mount ) ?? Texture.White );
 		return material;
 	}
+
 }

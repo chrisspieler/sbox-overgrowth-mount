@@ -7,7 +7,7 @@ namespace Overgrowth;
 
 public class OvergrowthMount : BaseGameMount
 {
-	private record MountContextAddCommand( ResourceType Type, string Path, ResourceLoader Loader );
+	private record MountContextAddCommand( ResourceType Type, MountAssetPath Path, ResourceLoader Loader );
 	
 	public long AppId => 25000;
 	public override string Ident => "overgrowth";
@@ -20,6 +20,9 @@ public class OvergrowthMount : BaseGameMount
 	public string SkeletonsDirectory => Path.Combine( DataDirectory, "Skeletons" );
 	public string SoundsDirectory => Path.Combine( DataDirectory, "Sounds" );
 	public string TexturesDirectory => Path.Combine( DataDirectory, "Textures" );
+
+	public MountAssetPath RelativePathToAssetRef( string relativePath, string customExtension ) 
+		=> new MountAssetPath( Ident, AppDirectory, relativePath, customExtension ); 
 	
 	protected override void Initialize( InitializeContext context )
 	{
@@ -34,7 +37,7 @@ public class OvergrowthMount : BaseGameMount
 	{
 		foreach ( var resource in GetAllResources() )
 		{
-			context.Add( resource.Type, resource.Path, resource.Loader );
+			context.Add( resource.Type, resource.Path.Relative, resource.Loader );
 		}
 		
 		Log.Info( $"Mounted \"{Title}\"" );
@@ -46,17 +49,17 @@ public class OvergrowthMount : BaseGameMount
 	private IEnumerable<MountContextAddCommand> GetAllResources()
 	{
 		var objects = new List<OvergrowthObject>();
-		foreach ( var (absPath, relPath) in FindFilesRecursive( AppDirectory, "*.xml" ) )
+		foreach ( var xmlPath in FindFilesRecursive( AppDirectory, "*.xml" ) )
 		{
-			objects.Add( OvergrowthObject.Load( absPath, relPath ) );
+			objects.Add( OvergrowthObject.Load( xmlPath ) );
 		}
 		
 		var numTexturesFound = 0;
-		foreach ( var ( absPath, relPath ) in FindFilesRecursive( AppDirectory, "*.dds" ) )
+		foreach ( var ddsPath in FindFilesRecursive( AppDirectory, "*.dds" ) )
 		{
-			var loader = new OvergrowthTextureFile( absPath, relPath );
+			var loader = new OvergrowthTexture( ddsPath );
 			numTexturesFound++;
-			yield return new MountContextAddCommand( ResourceType.Texture, relPath, loader );
+			yield return new MountContextAddCommand( ResourceType.Texture, ddsPath, loader );
 		}
 		
 		var numModelsFound = 0;
@@ -64,30 +67,28 @@ public class OvergrowthMount : BaseGameMount
 		{
 			if ( string.IsNullOrWhiteSpace( obj.ModelPath ) )
 				continue;
-			
-			var colorTex = obj.ColorMapPath is null ? Texture.White : Texture.Load( obj.ColorMapPath + "_converted.dds" );
-			var normalTex = obj.NormalMapPath is null ? Texture.White : Texture.Load( obj.NormalMapPath + "_converted.dds" );
-			
-			var absModelPath = Path.Combine( AppDirectory, obj.ModelPath );
-			var relModelPath = obj.ModelPath + ".vmdl";
-			var relMatPath =  Path.ChangeExtension( relModelPath, ".vmat" );
 
-			var materialLoader = new OvergrowthMaterial("mount://overgrowth/" + relMatPath, colorTex, normalTex );
-			yield return new MountContextAddCommand( ResourceType.Material, relMatPath, materialLoader );
+			var colorTexRef = RelativePathToAssetRef( obj.ColorMapPath + "_converted.dds", ".vtex" );
+			var normalTexRef = RelativePathToAssetRef( obj.NormalMapPath + "_converted.dds", ".vtex" );
+			var modelRef = RelativePathToAssetRef( obj.ModelPath, ".vmdl" );
+			var matRef = RelativePathToAssetRef( obj.ModelPath, ".vmat" );
 			
-			var modelLoader = new OvergrowthModel( absModelPath,"mount://overgrowth/" + relModelPath, materialLoader );
+			var materialLoader = new OvergrowthMaterial(matRef, colorTexRef, normalTexRef );
+			yield return new MountContextAddCommand( ResourceType.Material, matRef, materialLoader );
+			
+			var modelLoader = new OvergrowthModel( modelRef, matRef, colorTexRef, normalTexRef );
 			numModelsFound++;
 
-			yield return new MountContextAddCommand( ResourceType.Model, relModelPath, modelLoader );
+			yield return new MountContextAddCommand( ResourceType.Model, modelRef, modelLoader );
 		}
 		Log.Info( $"Mounted \"{Title}\" with {objects.Count} objects, {numTexturesFound} textures, and {numModelsFound} models" );
 	}
 
-	private IEnumerable<(string absPath, string relPath)> FindFilesRecursive( string directory, string pattern )
+	private IEnumerable<MountAssetPath> FindFilesRecursive( string directory, string pattern )
 	{
 		var options = new EnumerationOptions() { RecurseSubdirectories = true };
 		return Directory
 			.EnumerateFiles( directory, pattern, options )
-			.Select( absPath => ( absPath, Path.GetRelativePath( AppDirectory, absPath ) ) );
+			.Select( absPath => RelativePathToAssetRef( Path.GetRelativePath( AppDirectory, absPath ), string.Empty ) );
 	}
 }
