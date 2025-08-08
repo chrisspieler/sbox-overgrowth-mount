@@ -70,7 +70,8 @@ public class ObjFile
 		var newTexCoords = positions.Select( _ => Vector2.Zero ).ToList();
 		foreach (var face in faceData)
 		{
-			newTexCoords[face.PositionIndex] = texCoords[face.TexCoordIndex];
+			var oldTexCoords = texCoords[face.TexCoordIndex];
+			newTexCoords[face.PositionIndex] = new Vector2( oldTexCoords.x, 1.0f - oldTexCoords.y );
 		}
 		texCoords = newTexCoords;
 
