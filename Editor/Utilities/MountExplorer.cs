@@ -13,8 +13,7 @@ public class MountExplorer( SteamGameMount gameMount )
 	public MountAssetPath RelativePathToAssetRef( string relativePath, string customExtension )
 	{
 		return new MountAssetPath( 
-			gameMount.Ident, 
-			gameMount.AppDirectory, 
+			gameMount, 
 			relativePath, 
 			customExtension 
 		);

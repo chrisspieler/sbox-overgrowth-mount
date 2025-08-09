@@ -1,4 +1,5 @@
 ﻿using Duccsoft.Mounting;
+using Overgrowth.Extensions;
 using Sandbox.Mounting;
 
 namespace Overgrowth;
@@ -8,12 +9,6 @@ public class OvergrowthMount : SteamGameMount
 	public override long AppId => 25000;
 	public override string Ident => "overgrowth";
 	public override string Title => "Overgrowth";
-	
-	private MountAssetPath GetTextureRef( string relativePath ) => GetRefWithExtension( relativePath, ".vtex", "_converted.dds" );
-	private MountAssetPath GetModelRef( string relativePath ) => GetRefWithExtension( relativePath, ".vmdl" );
-	private MountAssetPath GetMaterialRef( string relativePath ) => GetRefWithExtension( relativePath, ".vmat" );
-	private MountAssetPath GetRefWithExtension( string relativePath, string extension, string suffix = null ) =>
-		Explorer.RelativePathToAssetRef( relativePath + suffix, extension );
 
 	public int ObjectFileCount { get; private set; }
 	public int TextureCount { get; private set; }
@@ -69,22 +64,20 @@ public class OvergrowthMount : SteamGameMount
 		
 		foreach ( var obj in objectFiles )
 		{
-			if ( string.IsNullOrWhiteSpace( obj.ModelPath ) )
+			var modelRelativePath = obj?.ModelPath?.Relative;
+			if ( string.IsNullOrWhiteSpace( modelRelativePath ) )
 				continue;
 
 			// Define a Material that uses the ColorMap and NormalMap textures.
-			var colorTexRef = GetTextureRef( obj.ColorMapPath );
-			var normalTexRef = GetTextureRef( obj.NormalMapPath );
-			var matRef = GetMaterialRef( obj.ModelPath );
-			var materialLoader = new MaterialLoader(matRef, colorTexRef, normalTexRef );
+			var matRef = Explorer.GetMaterialRef( modelRelativePath );
+			var materialLoader = new MaterialLoader(matRef, obj.ColorMapPath, obj.NormalMapPath );
 			MaterialCount++;
 			yield return new AddMountResourceCommand( ResourceType.Material, matRef, materialLoader );
 
 			// Define a Model that uses the aforementioned Material.
-			var modelRef = GetModelRef( obj.ModelPath );
-			var modelLoader = new ModelLoader( modelRef, matRef, colorTexRef, normalTexRef );
+			var modelLoader = new ModelLoader( obj );
 			ModelCount++;
-			yield return new AddMountResourceCommand( ResourceType.Model, modelRef, modelLoader );
+			yield return new AddMountResourceCommand( ResourceType.Model, obj.ModelPath.Value, modelLoader );
 		}
 	}
 }

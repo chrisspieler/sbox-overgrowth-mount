@@ -8,6 +8,11 @@ namespace S3TC;
 
 public class DdsFile
 {
+	/// <summary>
+	/// Define a maximum texture size for safety. Don't attempt to create a texture that has an axis larger than this.
+	/// </summary>
+	private const int MaxWidthOrHeight = 8192;
+	
 	public bool IsDxt10 => Dxt10Header is not null;
 	public bool IsKnownFormat => (int)Format >= 0;
 	
@@ -54,6 +59,19 @@ public class DdsFile
 		reader.BaseStream.Position = dxt10 is null ? 128 : 148;
 		var data = reader.ReadRemaining();
 		return new DdsFile( header, dxt10, data );
+	}
+
+	public Texture CreateTexture()
+	{
+		Assert.True( Width > 0, "Texture width must be greater than zero." );
+		Assert.True( Width <= MaxWidthOrHeight, $"Texture width {Width} cannot exceed {MaxWidthOrHeight}" );
+		Assert.True( Height > 0, "Texture height must be greater than zero." );
+		Assert.True( Height <= MaxWidthOrHeight, $"Texture height {Height} cannot exceed {MaxWidthOrHeight}" );
+		
+		var size = GetMipLevelSize( 0 );
+		return Texture.Create( size.y, size.y, Format )
+			.WithData( GetCompressedData( 0 ).ToArray() )
+			.Finish();
 	}
 
 	private ImageFormat GetImageFormat()

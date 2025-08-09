@@ -1,17 +1,16 @@
 ﻿using System;
-using System.IO;
-using System.Text;
 using System.Xml;
 using Duccsoft.Mounting;
+using Overgrowth.Extensions;
 
 namespace Overgrowth;
 
 public class OvergrowthObject
 {
 	public MountAssetPath XmlPath { get; init; }
-	public string ModelPath { get; init; }
-	public string ColorMapPath { get; init; }
-	public string NormalMapPath { get; init; }
+	public MountAssetPath? ModelPath { get; init; }
+	public MountAssetPath? ColorMapPath { get; init; }
+	public MountAssetPath? NormalMapPath { get; init; }
 
 	public static OvergrowthObject Load( MountAssetPath path )
 	{
@@ -36,9 +35,9 @@ public class OvergrowthObject
 		return new OvergrowthObject()
 		{
 			XmlPath = path,
-			ModelPath = modelPath,
-			ColorMapPath = colorMapPath,
-			NormalMapPath = normalMapPath
+			ModelPath = modelPath is null ? null : path.Explorer.GetModelRef( modelPath ),
+			ColorMapPath = colorMapPath is null ? null : path.Explorer.GetTextureRef( colorMapPath ),
+			NormalMapPath = normalMapPath is null ? null : path.Explorer.GetTextureRef( normalMapPath )
 		};
 	}
 }
