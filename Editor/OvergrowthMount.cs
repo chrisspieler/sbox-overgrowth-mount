@@ -1,8 +1,5 @@
-﻿using System.IO;
-using System.Threading.Tasks;
-using Duccsoft.Mounting;
+﻿using Duccsoft.Mounting;
 using Sandbox.Mounting;
-using Directory = System.IO.Directory;
 
 namespace Overgrowth;
 
@@ -12,62 +9,82 @@ public class OvergrowthMount : SteamGameMount
 	public override string Ident => "overgrowth";
 	public override string Title => "Overgrowth";
 	
-	protected override Task Mount( MountContext context )
+	private MountAssetPath GetTextureRef( string relativePath ) => GetRefWithExtension( relativePath, ".vtex", "_converted.dds" );
+	private MountAssetPath GetModelRef( string relativePath ) => GetRefWithExtension( relativePath, ".vmdl" );
+	private MountAssetPath GetMaterialRef( string relativePath ) => GetRefWithExtension( relativePath, ".vmat" );
+	private MountAssetPath GetRefWithExtension( string relativePath, string extension, string suffix = null ) =>
+		Explorer.RelativePathToAssetRef( relativePath + suffix, extension );
+
+	public int ObjectFileCount { get; private set; }
+	public int TextureCount { get; private set; }
+	public int MaterialCount { get; private set; }
+	public int ModelCount { get; private set; }
+
+	protected override IEnumerable<AddMountResourceCommand> GetAllResources()
 	{
-		foreach ( var resource in GetAllResources() )
+		// For each .dds file:
+		// - Create a loader for the Texture within that file.
+		foreach ( var addTexCommand in CreateTextureLoaders() )
 		{
-			context.Add( resource.Type, resource.Path.Relative, resource.Loader );
+			yield return addTexCommand;
 		}
 		
-		Log.Info( $"Mounted \"{Title}\"" );
-		
-		IsMounted = true;
-		return Task.CompletedTask;
+		// For each XML file that references models and textures:
+		// - Create a loader for a Material that uses the ColorMap and NormalMap textures.
+		// - Create a loader for a Model that uses this Material.
+		foreach ( var addLoaderCommand in CreateModelLoaders( DeserializeAllObjectFiles() ) )
+		{
+			yield return addLoaderCommand;
+		} 
+
+		Log.Info( $"Mounted \"{Title}\" with {ObjectFileCount} objects, {TextureCount} textures, {MaterialCount} materials, and {ModelCount} models" );
 	}
-	
-	private IEnumerable<AddMountResourceCommand> GetAllResources()
+
+	private IEnumerable<OvergrowthObject> DeserializeAllObjectFiles()
 	{
-		var objects = new List<OvergrowthObject>();
-		foreach ( var xmlPath in FindFilesRecursive( AppDirectory, "*.xml" ) )
+		ObjectFileCount = 0;
+		foreach ( var xmlPath in Explorer.FindFilesRecursive( AppDirectory, "*.xml" ) )
 		{
-			objects.Add( OvergrowthObject.Load( xmlPath ) );
+			var objData = OvergrowthObject.Load( xmlPath );
+			ObjectFileCount++;
+			yield return objData;
 		}
-		
-		var numTexturesFound = 0;
-		foreach ( var ddsPath in FindFilesRecursive( AppDirectory, "*.dds" ) )
+	}
+
+	private IEnumerable<AddMountResourceCommand> CreateTextureLoaders()
+	{
+		TextureCount = 0;
+		foreach ( var ddsPath in Explorer.FindFilesRecursive( AppDirectory, "*.dds" ) )
 		{
-			var loader = new TextureLoader( ddsPath );
-			numTexturesFound++;
-			yield return new AddMountResourceCommand( ResourceType.Texture, ddsPath, loader );
+			var texLoader = new TextureLoader( ddsPath );
+			TextureCount++;
+			yield return new AddMountResourceCommand( ResourceType.Texture, ddsPath, texLoader );
 		}
+	}
+
+	private IEnumerable<AddMountResourceCommand> CreateModelLoaders( IEnumerable<OvergrowthObject> objectFiles )
+	{
+		MaterialCount = 0;
+		ModelCount = 0;
 		
-		var numModelsFound = 0;
-		foreach ( var obj in objects )
+		foreach ( var obj in objectFiles )
 		{
 			if ( string.IsNullOrWhiteSpace( obj.ModelPath ) )
 				continue;
 
-			var colorTexRef = RelativePathToAssetRef( obj.ColorMapPath + "_converted.dds", ".vtex" );
-			var normalTexRef = RelativePathToAssetRef( obj.NormalMapPath + "_converted.dds", ".vtex" );
-			var modelRef = RelativePathToAssetRef( obj.ModelPath, ".vmdl" );
-			var matRef = RelativePathToAssetRef( obj.ModelPath, ".vmat" );
-			
+			// Define a Material that uses the ColorMap and NormalMap textures.
+			var colorTexRef = GetTextureRef( obj.ColorMapPath );
+			var normalTexRef = GetTextureRef( obj.NormalMapPath );
+			var matRef = GetMaterialRef( obj.ModelPath );
 			var materialLoader = new MaterialLoader(matRef, colorTexRef, normalTexRef );
+			MaterialCount++;
 			yield return new AddMountResourceCommand( ResourceType.Material, matRef, materialLoader );
-			
-			var modelLoader = new ModelLoader( modelRef, matRef, colorTexRef, normalTexRef );
-			numModelsFound++;
 
+			// Define a Model that uses the aforementioned Material.
+			var modelRef = GetModelRef( obj.ModelPath );
+			var modelLoader = new ModelLoader( modelRef, matRef, colorTexRef, normalTexRef );
+			ModelCount++;
 			yield return new AddMountResourceCommand( ResourceType.Model, modelRef, modelLoader );
 		}
-		Log.Info( $"Mounted \"{Title}\" with {objects.Count} objects, {numTexturesFound} textures, and {numModelsFound} models" );
-	}
-
-	private IEnumerable<MountAssetPath> FindFilesRecursive( string directory, string pattern )
-	{
-		var options = new EnumerationOptions() { RecurseSubdirectories = true };
-		return Directory
-			.EnumerateFiles( directory, pattern, options )
-			.Select( absPath => RelativePathToAssetRef( Path.GetRelativePath( AppDirectory, absPath ), string.Empty ) );
 	}
 }
