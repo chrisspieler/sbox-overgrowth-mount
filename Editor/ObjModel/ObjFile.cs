@@ -14,7 +14,7 @@ public class ObjFile
 		Face
 	}
 	
-	private struct FaceVertex
+	private struct FaceIndex
 	{
 		public int PositionIndex;
 		public int TexCoordIndex;
@@ -42,9 +42,9 @@ public class ObjFile
 		var lines = System.IO.File.ReadAllLines( filePath );
 
 		var vData = new List<Vector3>();
-		var vnData = new List<Vector3>();
 		var vtData = new List<Vector2>();
-		var fData = new List<FaceVertex>();
+		var vnData = new List<Vector3>();
+		var fData = new List<FaceIndex>();
 
 		var highestPosIndex = 0;
 		var highestUvIndex = 0;
@@ -108,7 +108,7 @@ public class ObjFile
 				var position = vData[posIdx];
 				var texCoord0 = vtData[texIdx];
 				var normal = Vector3.Zero;
-				if ( highestNormIndex > 0 )
+				if ( vnData.Count > 0 )
 					normal = vnData[normIdx];
 
 				vertices[posIdx] = new Vertex()
@@ -116,14 +116,14 @@ public class ObjFile
 					Position = position,
 					Color = Color.White,
 					TexCoord0 = new Vector4( texCoord0.x, texCoord0.y, 0, 0 ),
-					TexCoord1 = new Vector4( 1, 0, 0, 0 ),
+					TexCoord1 = new Vector4( 0, 0, 0, 0 ),
 					Normal = normal
 				};
 			}
 		}
 		
 		// If we didn't parse any normals, calculate them now.
-		if ( highestNormIndex < 1 )
+		if ( vnData.Count < 1 )
 		{
 			RecalculateNormals();
 		}
@@ -305,7 +305,7 @@ public class ObjFile
 			);
 		}
 
-		FaceVertex[] ParseFaceIndices( string line )
+		FaceIndex[] ParseFaceIndices( string line )
 		{
 			var faceStrings = line.Split( (char)0x20 );
 			// If we find a quad, split it in to two triangles.
@@ -314,11 +314,11 @@ public class ObjFile
 				faceStrings = [faceStrings[0], faceStrings[1], faceStrings[2], faceStrings[0], faceStrings[2], faceStrings[3]];
 			}
 			Assert.True( faceStrings.Length % 3 == 0, "Number of face strings must be a multiple of 3" );
-			var face = new FaceVertex[faceStrings.Length];
+			var idx = new FaceIndex[faceStrings.Length];
 			for ( int i = 0; i < faceStrings.Length; i++ )
 			{
 				var fields = faceStrings[i].Split( '/' );
-				FaceVertex faceIndices = new FaceVertex
+				FaceIndex faceIndices = new FaceIndex
 				{
 					PositionIndex = int.Parse( fields[0] ) - 1, 
 					TexCoordIndex = int.Parse( fields[1] ) - 1
@@ -331,9 +331,9 @@ public class ObjFile
 				{
 					faceIndices.NormalIndex = faceIndices.PositionIndex;
 				}
-				face[i] = faceIndices;
+				idx[i] = faceIndices;
 			}
-			return face;
+			return idx;
 		}
 	}
 }
