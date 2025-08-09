@@ -1,37 +1,16 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
+using Duccsoft.Mounting;
 using Sandbox.Mounting;
 using Directory = System.IO.Directory;
 
 namespace Overgrowth;
 
-public class OvergrowthMount : BaseGameMount
+public class OvergrowthMount : SteamGameMount
 {
-	private record MountContextAddCommand( ResourceType Type, MountAssetPath Path, ResourceLoader Loader );
-	
-	public long AppId => 25000;
+	public override long AppId => 25000;
 	public override string Ident => "overgrowth";
 	public override string Title => "Overgrowth";
-	public string AppDirectory { get; private set; }
-	public string DataDirectory => Path.Combine( AppDirectory, "Data" );
-	public string ModelsDirectory => Path.Combine( DataDirectory, "Models" );
-	public string MusicDirectory => Path.Combine( DataDirectory, "Music" );
-	public string ObjectsDirectory => Path.Combine( DataDirectory, "Objects" );
-	public string SkeletonsDirectory => Path.Combine( DataDirectory, "Skeletons" );
-	public string SoundsDirectory => Path.Combine( DataDirectory, "Sounds" );
-	public string TexturesDirectory => Path.Combine( DataDirectory, "Textures" );
-
-	public MountAssetPath RelativePathToAssetRef( string relativePath, string customExtension ) 
-		=> new MountAssetPath( Ident, AppDirectory, relativePath, customExtension ); 
-	
-	protected override void Initialize( InitializeContext context )
-	{
-		if ( !context.IsAppInstalled( AppId ) )
-			return;
-		
-		AppDirectory = context.GetAppDirectory( AppId );
-		IsInstalled = Path.Exists( AppDirectory );
-	}
 	
 	protected override Task Mount( MountContext context )
 	{
@@ -46,7 +25,7 @@ public class OvergrowthMount : BaseGameMount
 		return Task.CompletedTask;
 	}
 	
-	private IEnumerable<MountContextAddCommand> GetAllResources()
+	private IEnumerable<AddMountResourceCommand> GetAllResources()
 	{
 		var objects = new List<OvergrowthObject>();
 		foreach ( var xmlPath in FindFilesRecursive( AppDirectory, "*.xml" ) )
@@ -57,9 +36,9 @@ public class OvergrowthMount : BaseGameMount
 		var numTexturesFound = 0;
 		foreach ( var ddsPath in FindFilesRecursive( AppDirectory, "*.dds" ) )
 		{
-			var loader = new OvergrowthTexture( ddsPath );
+			var loader = new TextureLoader( ddsPath );
 			numTexturesFound++;
-			yield return new MountContextAddCommand( ResourceType.Texture, ddsPath, loader );
+			yield return new AddMountResourceCommand( ResourceType.Texture, ddsPath, loader );
 		}
 		
 		var numModelsFound = 0;
@@ -73,13 +52,13 @@ public class OvergrowthMount : BaseGameMount
 			var modelRef = RelativePathToAssetRef( obj.ModelPath, ".vmdl" );
 			var matRef = RelativePathToAssetRef( obj.ModelPath, ".vmat" );
 			
-			var materialLoader = new OvergrowthMaterial(matRef, colorTexRef, normalTexRef );
-			yield return new MountContextAddCommand( ResourceType.Material, matRef, materialLoader );
+			var materialLoader = new MaterialLoader(matRef, colorTexRef, normalTexRef );
+			yield return new AddMountResourceCommand( ResourceType.Material, matRef, materialLoader );
 			
-			var modelLoader = new OvergrowthModel( modelRef, matRef, colorTexRef, normalTexRef );
+			var modelLoader = new ModelLoader( modelRef, matRef, colorTexRef, normalTexRef );
 			numModelsFound++;
 
-			yield return new MountContextAddCommand( ResourceType.Model, modelRef, modelLoader );
+			yield return new AddMountResourceCommand( ResourceType.Model, modelRef, modelLoader );
 		}
 		Log.Info( $"Mounted \"{Title}\" with {objects.Count} objects, {numTexturesFound} textures, and {numModelsFound} models" );
 	}

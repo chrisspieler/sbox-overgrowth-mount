@@ -1,7 +1,7 @@
 ﻿using System;
 using Sandbox.Diagnostics;
 
-namespace Overgrowth.ObjModel;
+namespace Wavefront;
 
 public class ObjFile
 {

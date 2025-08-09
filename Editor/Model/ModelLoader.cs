@@ -1,10 +1,13 @@
-﻿using Overgrowth.ObjModel;
+﻿using Duccsoft.Mounting;
+using Overgrowth;
 using Sandbox.Diagnostics;
 using Sandbox.Mounting;
+using Wavefront;
 
 namespace Overgrowth;
 
-public class OvergrowthModel( MountAssetPath modelRef, MountAssetPath materialRef, MountAssetPath colorTexRef, MountAssetPath normalTexRef ) : ResourceLoader<OvergrowthMount>
+public class ModelLoader( MountAssetPath modelRef, MountAssetPath materialRef, MountAssetPath colorTexRef, MountAssetPath normalTexRef ) 
+	: ResourceLoader<OvergrowthMount>
 {
 	protected override object Load() => LoadModel( modelRef, materialRef, colorTexRef, normalTexRef );
 	
@@ -12,7 +15,7 @@ public class OvergrowthModel( MountAssetPath modelRef, MountAssetPath materialRe
 	{
 		var objData = ObjFile.Load( modRef.Absolute );
 
-		var material = OvergrowthMaterial.LoadMaterial( matRef, colTexRef, normTexRef );
+		var material = MaterialLoader.LoadMaterial( matRef, colTexRef, normTexRef );
 		Assert.NotNull( material, $"Given material was null: {matRef.Relative}" );
 		
 		var mesh = new Mesh( material );

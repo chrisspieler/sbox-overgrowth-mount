@@ -1,9 +1,10 @@
-﻿using S3TC;
+﻿using Duccsoft.Mounting;
+using S3TC;
 using Sandbox.Mounting;
 
 namespace Overgrowth;
 
-public class OvergrowthTexture( MountAssetPath textureRef ) : ResourceLoader<OvergrowthMount>
+public class TextureLoader( MountAssetPath textureRef ) : ResourceLoader<OvergrowthMount>
 {
 	protected override object Load() => LoadTexture( textureRef );
 	

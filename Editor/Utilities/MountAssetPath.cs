@@ -1,8 +1,8 @@
 ﻿using System.IO;
 
-namespace Overgrowth;
+namespace Duccsoft.Mounting;
 
-public struct MountAssetPath
+public readonly struct MountAssetPath
 {
 	public MountAssetPath( string mountIdent, string appDirectoryPath, string relativeAssetPath, string customExtension )
 	{
